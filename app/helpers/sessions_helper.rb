@@ -31,8 +31,7 @@ module SessionsHelper
     while call.response[:status_code] != 1
       call = get_call(client, :get_inventory)
     end
-    response =  pp call
-    response = response.response
+    response = call.response
     file = File.read('app/assets/pokemon.en.json')
     pokemon_hash = JSON.parse(file)
 
@@ -60,16 +59,18 @@ module SessionsHelper
             user.unique_pokedex_entries = i[:unique_pokedex_entries]
             user.evolutions = i[:evolutions]
             user.save
-          when :item 
+          when :item
             item_id = i[:item_id]
             count = i[:count]
             user.items.create(item_id: item_id, count: count)
           when :pokemon_data
             # Set poke_id
             poke_id = i[:pokemon_id].capitalize.to_s
-            # To deal with Nidoran naming
-            poke_id.match('Nidoran_female') ? poke_id = 'Nidoran♀' : nil
-            poke_id.match('Nidoran_male') ? poke_id = 'Nidoran♂' : nil
+            # To deal with Nidoran and Mr. Mime naming
+            poke_id = 'Nidoran♀' if poke_id.match('Nidoran_female')
+            poke_id = 'Nidoran♂' if poke_id.match('Nidoran_male')
+            poke_id = 'Mr. Mime' if poke_id.match('Mr_mime')
+            poke_id = "Farfetch'd" if poke_id.match('Farfetchd')
             # To deal with MISSINGNO Pokemon
             if pokemon_hash.key(poke_id) != nil
               poke_num = pokemon_hash.key(poke_id)
@@ -90,7 +91,7 @@ module SessionsHelper
             pokemon.defense = i[:individual_defense]
             pokemon.stamina = i[:individual_stamina]
             pokemon.cp = i[:cp]
-            pokemon.iv = ((pokemon.attack + pokemon.defense + pokemon.stamina) / 45.0).round(2)
+            pokemon.iv = ((pokemon.attack + pokemon.defense + pokemon.stamina) / 45.0).round(3)
             pokemon.nickname = i[:nickname]
             pokemon.favorite = i[:favorite]
             pokemon.num_upgrades = i[:num_upgrades]
@@ -109,7 +110,7 @@ module SessionsHelper
 
             ## Instantiate pokemon
             #pokemon = user.pokemon.where(:poke_id => poke_id).first_or_create!
-            #pokemon.candy = candy 
+            #pokemon.candy = candy
             #pokemon.save
           end
         end
@@ -127,8 +128,7 @@ module SessionsHelper
       call = get_call(client, :get_player)
     end
     info = Hash.new
-    response = pp call
-    response = response.response
+    response = call.response
     info[:name] = response[:GET_PLAYER][:player_data][:username]
     info[:team] = response[:GET_PLAYER][:player_data][:team]
     info[:max_pokemon_storage] = response[:GET_PLAYER][:player_data][:max_pokemon_storage]
@@ -158,7 +158,7 @@ module SessionsHelper
       @user = setup_client_user_pair(client)
     end
     return {:user => @user, :client => client}
-  end 
+  end
 
   def setup_client_user_pair(client, refresh_token = nil)
     info = get_player_info(client)
@@ -171,7 +171,7 @@ module SessionsHelper
     @user.max_item_storage = info[:max_item_storage]
     @user.POKECOIN = info[:POKECOIN]
     @user.STARDUST = info[:STARDUST]
-    @user.last_data_update = Time.now.utc.strftime("%-I:%M%p %-m/%-e UTC")
+    @user.last_data_update = Time.now.to_s
     if !refresh_token.nil?
       time = Time.now + 3600
       time = time.to_i
@@ -214,7 +214,6 @@ module SessionsHelper
       google = Poke::API::Auth::GOOGLE.new("username", "password")
       google.instance_variable_set(:@access_token, access_token)
       client.instance_variable_set(:@auth, google)
-      #client.instance_eval { fetch_endpoint }
       return {:client => client, :refresh_token => refresh_token}
   end
 
